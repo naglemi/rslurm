@@ -10,4 +10,5 @@
 {{#options}}
 #SBATCH --{{{name}}}={{{value}}}
 {{/options}}
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 {{{rscript}}} --vanilla slurm_run.R
