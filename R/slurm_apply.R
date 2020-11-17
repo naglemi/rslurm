@@ -85,6 +85,9 @@
 #'   If NULL, uses the default template "rslurm/templates/submit_sh.txt".
 #' @param slurm_options A named list of options recognized by \code{sbatch}; see
 #'   Details below for more information.
+#' @param multithread Whether multithreading is applied internally by the R function
+#'   being submitted through `slurm_apply`, in which case `slurm_apply` will
+#'   prepare no more than one job for each node
 #' @param submit Whether or not to submit the job to the cluster with
 #'   \code{sbatch}; see Details below for more information.
 #' @return A \code{slurm_job} object containing the \code{jobname} and the
@@ -108,7 +111,8 @@ slurm_apply <- function(f, params, ..., jobname = NA, nodes = 2,
                         add_objects = NULL, pkgs = rev(.packages()),
                         libPaths = NULL, rscript_path = NULL, 
                         r_template = NULL, sh_template = NULL, 
-                        slurm_options = list(), submit = TRUE) {
+                        slurm_options = list(),
+                        multithread = FALSE, submit = TRUE) {
     # Check inputs
     if (!is.function(f)) {
         stop("first argument to slurm_apply should be a function")
@@ -160,13 +164,20 @@ slurm_apply <- function(f, params, ..., jobname = NA, nodes = 2,
     
     # Get chunk size (nb. of param. sets by node)
     # Special case if less param. sets than CPUs in cluster
-    if (nrow(params) < cpus_per_node * nodes) {
-        nchunk <- cpus_per_node
-    } else {
-        nchunk <- ceiling(nrow(params) / nodes)
+  
+    if (multithread == TRUE){
+      nchunk <- nrow(params)
     }
-    # Re-adjust number of nodes (only matters for small sets)
-    nodes <- ceiling(nrow(params) / nchunk)
+  
+    if (multithread == FALSE){
+      if (nrow(params) < cpus_per_node * nodes) {
+        nchunk <- cpus_per_node
+      } else {
+          nchunk <- ceiling(nrow(params) / nodes)
+      }
+      # Re-adjust number of nodes (only matters for small sets)
+      nodes <- ceiling(nrow(params) / nchunk)
+    }
 
     # Create a R script to run function in parallel on each node
     template_r <- readLines(r_template)
